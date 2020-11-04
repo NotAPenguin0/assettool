@@ -1,0 +1,3 @@
+[submodule "external/assetlib"]
+	path = external/assetlib
+	url = https://github.com/NotAPenguin0/assetlib

@@ -15,7 +15,7 @@ bool convert_texture(fs::path const& input, fs::path const& output, std::ostream
 	info.byte_size = byte_size;
 	info.extents[0] = width;
 	info.extents[1] = height;
-	info.color_space = assetlib::ColorSpace::SRGB; // TODO, proper rgb/srgb detection
+	info.compression = assetlib::CompressionMode::LZ4;
 	info.format = assetlib::TextureFormat::RGBA8;
 
 	assetlib::AssetFile converted = assetlib::pack_texture(info, pixels);

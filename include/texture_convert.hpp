@@ -1,7 +1,8 @@
 #pragma once
 
-#include <filesystem>
-#include <iostream>
-namespace fs = std::filesystem;
+#include <mipgen/mipgen.hpp>
+#include <plib/stream.hpp>
 
-bool convert_texture(fs::path const& input, fs::path const& output, std::ostream& log);
+#include <iostream>
+
+bool convert_texture(mipgen::Context& ctx, plib::binary_input_stream& in, plib::binary_output_stream& out, std::ostream& log);

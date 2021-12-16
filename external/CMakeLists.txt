@@ -20,6 +20,10 @@ FetchContent_Declare(
 	GIT_REPOSITORY https://github.com/assimp/assimp
 )
 
+FetchContent_Declare(
+	argumentum
+	GIT_REPOSITORY https://github.com/mmahnic/argumentum
+)
 
 set(ASSIMP_BUILD_ZLIB OFF)
 set(ASSIMP_BUILD_ALL_EXPORTERS_BY_DEFAULT OFF)
@@ -33,9 +37,10 @@ set(ASSIMP_BUILD_ASSIMP_TOOLS OFF)
 FetchContent_MakeAvailable(mipgen)
 FetchContent_MakeAvailable(plib)
 FetchContent_MakeAvailable(assimp)
+FetchContent_MakeAvailable(argumentum)
 
 target_compile_definitions(assimp PRIVATE -D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
 target_compile_options(assimp PRIVATE "-w")
 
-target_link_libraries(assettool PRIVATE assetlib stb-image mipgen assimp)
-target_include_directories(assettool PRIVATE "assetlib/include" "stb" "${mipgen_SOURCE_DIR}/include" "${plib_SOURCE_DIR}/include")
+target_link_libraries(assettool PRIVATE assetlib stb-image mipgen assimp argumentum)
+target_include_directories(assettool PRIVATE "assetlib/include" "stb" "${mipgen_SOURCE_DIR}/include" "${plib_SOURCE_DIR}/include" "${argumentum_SOURCE_DIR}/include")

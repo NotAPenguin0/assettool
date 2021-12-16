@@ -14,4 +14,11 @@ add_executable(assettool "")
 target_sources(assettool PRIVATE "src/main.cpp" "src/texture_convert.cpp" "src/mesh_convert.cpp")
 target_include_directories(assettool PRIVATE "include/")
 
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "(Clang)|(GNU)")
+    if (WIN32)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -EHa")
+    endif()
+#    target_compile_options(assettool PUBLIC -fcxx-exceptions)
+endif()
+
 add_subdirectory("external")

@@ -1,6 +1,7 @@
 #include <texture_convert.hpp>
 #include <assetlib/texture.hpp>
 #include <stb_image.h>
+#include <options.hpp>
 
 #include <cassert>
 #include <fstream>
@@ -111,6 +112,44 @@ namespace png {
 
 } // namespace png
 
+mipgen::ImageFormat mip_format(assetlib::TextureFormat fmt, assetlib::ColorSpace space) {
+    if (space == assetlib::ColorSpace::RGB) {
+        switch (fmt) {
+            case assetlib::TextureFormat::R8:
+                return mipgen::ImageFormat::R8;
+            case assetlib::TextureFormat::RG8:
+                return mipgen::ImageFormat::RG8;
+            case assetlib::TextureFormat::RGB8:
+                return mipgen::ImageFormat::RGB8;
+            case assetlib::TextureFormat::RGBA8:
+                return mipgen::ImageFormat::RGBA8;
+            default:
+                return {};
+        }
+    } else if (space == assetlib::ColorSpace::sRGB) {
+        switch (fmt) {
+            case assetlib::TextureFormat::R8:
+                return mipgen::ImageFormat::sR8;
+            case assetlib::TextureFormat::RG8:
+                return mipgen::ImageFormat::sRG8;
+            case assetlib::TextureFormat::RGB8:
+                return mipgen::ImageFormat::sRGB8;
+            case assetlib::TextureFormat::RGBA8:
+                return mipgen::ImageFormat::sRGBA8;
+            default:
+                return {};
+        }
+    }
+}
+
+assetlib::TextureFormat get_format(int channels) {
+    if (channels == 1) return assetlib::TextureFormat::R8;
+    if (channels == 2) return assetlib::TextureFormat::RG8;
+    if (channels == 3) return assetlib::TextureFormat::RGB8;
+    if (channels == 4) return assetlib::TextureFormat::RGBA8;
+    return assetlib::TextureFormat::Unknown;
+}
+
 bool convert_texture(mipgen::Context& mipgen_ctx, plib::binary_input_stream& in, plib::binary_output_stream& out, std::ostream& log) {
 	int width, height, channels;
 
@@ -118,29 +157,34 @@ bool convert_texture(mipgen::Context& mipgen_ctx, plib::binary_input_stream& in,
 	unsigned char* in_file = new unsigned char[file_size];
 	in.read(in_file, file_size);
 
-	unsigned char* pixels = stbi_load_from_memory(in_file, file_size, &width, &height, &channels, STBI_rgb_alpha);
+	unsigned char* pixels = stbi_load_from_memory(in_file, file_size, &width, &height, &channels, g_options.channels);
 	if (pixels == nullptr) {
 		log << "Error: Failed to read texture" << std::endl;
 		delete[] in_file;
 		return false;
 	}
+
+    assetlib::TextureInfo info;
+
+    info.extents[0] = width;
+    info.extents[1] = height;
+
+    info.compression = assetlib::CompressionMode::LZ4;
+    info.format = get_format(g_options.channels);
+    info.colorspace = g_options.colorspace;
+
 	mipgen::ImageInfo img_info;
 	img_info.extents[0] = width;
 	img_info.extents[1] = height;
-	img_info.format = mipgen::ImageFormat::sRGBA8;
+	img_info.format = mip_format(info.format, info.colorspace);
 	img_info.pixels = pixels;
 
 	uint32_t output_byte_size = mipgen::output_buffer_size(img_info);
 	unsigned char* pixels_with_mipmaps = new unsigned char[output_byte_size];
 	mipgen_ctx.generate_mipmap(img_info, pixels_with_mipmaps);
 
-	assetlib::TextureInfo info;
-	info.byte_size = output_byte_size;
-	info.extents[0] = width;
-	info.extents[1] = height;
-	info.mip_levels = mipgen::get_mip_count(img_info);
-	info.compression = assetlib::CompressionMode::LZ4;
-	info.format = assetlib::TextureFormat::RGBA8;
+    info.byte_size = output_byte_size;
+    info.mip_levels = mipgen::get_mip_count(img_info);
 	assetlib::AssetFile converted = assetlib::pack_texture(info, pixels_with_mipmaps);
 	delete[] pixels_with_mipmaps;
 	delete[] in_file;

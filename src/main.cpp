@@ -1,14 +1,19 @@
 #include <assetlib/versions.hpp>
-
+#include <assetlib/texture.hpp>
+#include <assetlib/mesh.hpp>
 #include <texture_convert.hpp>
 #include <mesh_convert.hpp>
+#include <options.hpp>
 #include <mipgen/mipgen.hpp>
 #include <stb_image.h>
-
+#include <argumentum/argparse.h>
 #include <chrono>
 #include <string>
 #include <iostream>
 #include <filesystem>
+
+// define the options global
+Options g_options = {};
 
 namespace fs = std::filesystem;
 
@@ -53,64 +58,83 @@ static bool is_mesh(fs::path const& path) {
 	return false;
 }
 
-static void process_directory(fs::path const& directory, std::ostream& log) {
-	uint32_t tex_count = 0;
-	uint32_t mesh_count = 0;
-	auto start = std::chrono::high_resolution_clock::now();
-	mipgen::Context mipgen_ctx(mipgen::GenerationMethod::ComputeBicubic);
-	for (fs::directory_entry const& entry : fs::recursive_directory_iterator(directory)) {
-		fs::path const& path = entry.path();
-		if (is_texture(path)) {
-			log << "Found texture to process: " << path.generic_string() << "\n";
+static void process_file(fs::path const& path, std::ostream& log) {
+    auto start = std::chrono::high_resolution_clock::now();
+    mipgen::Context mipgen_ctx(mipgen::GenerationMethod::ComputeBicubic);
 
-			fs::path new_path = path;
-			new_path.replace_extension(".tx");
+    if (is_texture(path)) {
+        fs::path new_path = path;
+        new_path.replace_extension(".tx");
 
-			auto in = plib::binary_input_stream::from_file(path.generic_string().c_str());
-			auto out = plib::binary_output_stream::from_file(new_path.generic_string().c_str());
+        auto in = plib::binary_input_stream::from_file(path.generic_string().c_str());
+        auto out = plib::binary_output_stream::from_file(new_path.generic_string().c_str());
 
-			bool success = convert_texture(mipgen_ctx, in, out, log);
-			++tex_count;
-			if (!success) {
-				log << "Conversion of texture " << path.generic_string() << " failed.\n";
-			}
-		}
+        bool success = convert_texture(mipgen_ctx, in, out, log);
+        if (!success) {
+            log << "Conversion of texture " << path.generic_string() << " failed.\n";
+        }
+    }
 
-		if (is_mesh(path)) {
-			log << "Found mesh to process: " << path.generic_string() << "\n";
+    else if (is_mesh(path)) {
+        fs::path new_path = path;
+        new_path.replace_extension(".mesh");
 
-			fs::path new_path = path;
-			new_path.replace_extension(".mesh");
+        auto in = plib::binary_input_stream::from_file(path.generic_string().c_str());
+        auto out = plib::binary_output_stream::from_file(new_path.generic_string().c_str());
 
-			auto in = plib::binary_input_stream::from_file(path.generic_string().c_str());
-			auto out = plib::binary_output_stream::from_file(new_path.generic_string().c_str());
+        bool success = convert_mesh(in, out, log);
+        if (!success) {
+            log << "Conversion of mesh " << path.generic_string() << " failed.\n";
+        }
+    }
 
-			bool success = convert_mesh(in, out, log);
-			++mesh_count;
-			if (!success) {
-				log << "Conversion of mesh " << path.generic_string() << " failed.\n";
-			}
-		}
-	}
-	auto end = std::chrono::high_resolution_clock::now();
+    auto end = std::chrono::high_resolution_clock::now();
 
-	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-	std::cout << "Converted and preprocessed " << tex_count << " textures and " << mesh_count << " meshes in " << ms << "ms\n.";
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    std::cout << "Converted and preprocessed " << path.generic_string() << " in " << ms << "ms.\n";
 }
 
-// Usage: assettool dir_to_process
+static void process_directory(fs::path const& directory, std::ostream& log) {
+	mipgen::Context mipgen_ctx(mipgen::GenerationMethod::ComputeBicubic);
+	for (fs::directory_entry const& entry : fs::recursive_directory_iterator(directory)) {
+		process_file(entry.path(), log);
+	}
+}
+
+// Functions used to parse arguments
+template<>
+struct argumentum::from_string<assetlib::ColorSpace> {
+    [[nodiscard]] static assetlib::ColorSpace convert(std::string const& s) {
+        if (s == "RGB") return assetlib::ColorSpace::RGB;
+        else if (s == "sRGB") return assetlib::ColorSpace::sRGB;
+        else return assetlib::ColorSpace::Unknown;
+    }
+};
+
+// Usage: assettool filename
 int main(int argc, char** argv) {
 	std::ostream& log = std::cout;
 
-	if (argc != 2) {
-		log << "Error: Invalid argument count. Usage: assettool dir_to_process" << std::endl;
-		return -1;
-	}
+    auto parser = argumentum::argument_parser{};
+    auto params = parser.params();
+    parser.config().program(argv[0]).description("Asset converter tool for Andromeda.");
+    params.add_parameter(g_options.file, "--file", "-f")
+        .nargs(1)
+        .required()
+        .help("Path to the unprocessed asset file.");
+    params.add_parameter(g_options.colorspace, "--colorspace", "-s")
+        .nargs(1)
+        .choices({"RGB", "sRGB"})
+        .absent(assetlib::ColorSpace::RGB)
+        .help("If the asset is an image file, this is the color space of the image.");
+    params.add_parameter(g_options.channels, "--channels", "-c")
+        .nargs(1)
+        .absent(4)
+        .help("If the asset is an image file, this is the amount of channels the final processed image must have.");
 
-	log_asset_versions(log);
-	fs::path dir(argv[1]);
-	log << "Processing directory " << dir.generic_string() << "\n";
+    if (!parser.parse_args(argc, argv)) return -1;
 
+    log_asset_versions(log);
 	stbi_set_flip_vertically_on_load(true);
-	process_directory(dir, log);
+	process_file(g_options.file, log);
 }

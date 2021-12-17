@@ -140,6 +140,9 @@ mipgen::ImageFormat mip_format(assetlib::TextureFormat fmt, assetlib::ColorSpace
                 return {};
         }
     }
+
+    assert(false && "Invalid combination of formats");
+    return {};
 }
 
 assetlib::TextureFormat get_format(int channels) {

@@ -60,7 +60,7 @@ static bool is_mesh(fs::path const& path) {
 
 static void process_file(fs::path const& path, std::ostream& log) {
     auto start = std::chrono::high_resolution_clock::now();
-    mipgen::Context mipgen_ctx(mipgen::GenerationMethod::ComputeBicubic);
+    mipgen::Context mipgen_ctx(mipgen::GenerationMethod::ImageBlit);
 
     if (is_texture(path)) {
         fs::path new_path = path;
@@ -95,7 +95,7 @@ static void process_file(fs::path const& path, std::ostream& log) {
 }
 
 static void process_directory(fs::path const& directory, std::ostream& log) {
-	mipgen::Context mipgen_ctx(mipgen::GenerationMethod::ComputeBicubic);
+	mipgen::Context mipgen_ctx(mipgen::GenerationMethod::ImageBlit);
 	for (fs::directory_entry const& entry : fs::recursive_directory_iterator(directory)) {
 		process_file(entry.path(), log);
 	}
